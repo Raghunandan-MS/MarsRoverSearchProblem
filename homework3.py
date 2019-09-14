@@ -1,7 +1,4 @@
-import numpy as np
 import math
-from collections import deque
-from heapq import heappush, heappop
 
 def startUpFunction():
 	# Creating a dict of all input parameters, for cleaner parameter and better function.
@@ -19,8 +16,8 @@ def startUpFunction():
 	inputParams['max_elevation'] = int(input_data[3].rstrip('\n'))
 	inputParams['target_site_count'] = int(input_data[4].rstrip('\n'))
 	target_sites, mesh_grid = inputListToArray(inputParams['target_site_count'], input_data[5:])
-	inputParams['target_sites'] = np.array(target_sites)
-	inputParams['array'] = np.array(mesh_grid).transpose()
+	inputParams['target_sites'] = target_sites
+	inputParams['array'] = list(map(list, zip(*mesh_grid)))
 	algoType = inputParams['algo_name']
 	# Call the init function to start search based on Algo type!
 	# Returns a list of all possible outputs
@@ -73,7 +70,8 @@ Breadth First Search Implementation of Mars Rover!
 def bfsGoalSearching(problem , target , queuingFunction):
 	initialState = (problem['x'] , problem['y'])
 	# Adding the initial state to the queue
-	queue = deque([[(initialState), []]]) # Add the start state and an empty list that will have all the tuples!
+	#queue = deque([[(initialState), []]]) # Add the start state and an empty list that will have all the tuples!
+	queue = [[initialState, []]]
 	# Creating a set of visited elements to keep track of all the elements that have been seen!
 	visited = set();
 	if initialState == target:
@@ -81,7 +79,7 @@ def bfsGoalSearching(problem , target , queuingFunction):
 		return initialState
 	while queue:
 		# Pop the first element in the Q and process it.
-		currNode, path = queue.popleft()
+		currNode, path = queue.pop(0)
 		if currNode == target:
 		# Goal state has been reached by BFS
 			visited.add(currNode)
@@ -112,22 +110,24 @@ def ucsGoalSearching(problem, target, queuingFunction):
 	if initialState == target:
 		# Start state was the goal state.
 		return initialState;
-	heap = []; # A heap data strcuture that heapq uses to sort the lowest element! Consider this sort of as a frontier / priority q.
+	#heap = []; # A heap data strcuture that heapq uses to sort the lowest element! Consider this sort of as a frontier / priority q.
+	priorityQueue = []; # Using a list to sort the values to maintain a priority queue.
 	exploredList = set() # SOmewhat on similar lines of a visited set in BFS!
-	heappush(heap, [0, initialState, []]) # Push to the heap the initialState with cost 0 and an empty neighbors path!
-	while heap:
-		cost , currNode , path = heappop(heap) # Pop's always the smallest element. Here based on the cost size.
+	#heappush(heap, [0, initialState, []]) # Push to the heap the initialState with cost 0 and an empty neighbors path!
+	priorityQueue.append([0, initialState, []]) # Considering the initial state to have 0 path cost and no parents!
+	while priorityQueue:
+		cost , currNode , path = priorityQueue.pop(0) # Pop's always the smallest element. Here based on the cost size.
 		if currNode == target:
 			# Goal State has been found!
 			exploredList.add(currNode)
 			return path + [currNode];
 		if currNode not in exploredList:
-			heap = queuingFunction(heap, problem, cost, currNode, path, target, exploredList)
+			priorityQueue = queuingFunction(priorityQueue, problem, cost, currNode, path, target, exploredList)
 			exploredList.add(currNode)
 	# Return Fail as there is no path to the target node!
 	return "FAIL"
 
-def	ucsQueuingFunction(heap, problem, cost, currNode, path, target, exploredList):
+def	ucsQueuingFunction(pq, problem, cost, currNode, path, target, exploredList):
 	ADJ_PATH_COST = 10
 	DIAG_PATH_COST = 14
 	maxElevation = problem['max_elevation']
@@ -141,8 +141,9 @@ def	ucsQueuingFunction(heap, problem, cost, currNode, path, target, exploredList
 			else:
 				updatedPathCost = cost + DIAG_PATH_COST # Neighbor that is diagonally adjacent.
 			updatedPath = path + [currNode]
-			heappush(heap, [updatedPathCost, neighbor, updatedPath])
-	return heap;
+			pq.append([updatedPathCost, neighbor, updatedPath])
+	pq.sort() # Sorting the list based on cumulative path cost!
+	return pq;
 
 '''
 A* Implementation for the Mars Rover Problem
@@ -154,20 +155,20 @@ def aStarGoalSearching(problem , target , queuingFunction):
 		# The Rover has landed on the target! Yay!
 		exploredList.add(initialState)
 		return initialState
-	heap = [] # A binary min heap to always store the lowest cost path at the beginning!
+	priorityQueue = [] # A priority queue to always store the lowest cost path at the beginning!
 	exploredList = set() # A list that will store all the visited lists!
-	heappush(heap, [0, initialState, []]) # Assumption that the estimated cost at starting is 0 for the Rover's landing position.
-	while heap:
-		cost, currNode, path = heappop(heap)
+	priorityQueue.append([0, initialState, []]) # Assumption that the estimated cost at starting is 0 for the Rover's landing position.
+	while priorityQueue:
+		cost, currNode, path = priorityQueue.pop(0)
 		if currNode == target:
 			# Rover has reached the goal state!
 			exploredList.add(currNode)
 			return path + [currNode]
 		if currNode not in exploredList:
-			heap = queuingFunction(heap, problem, cost, currNode, path, target, exploredList)
+			priorityQueue = queuingFunction(priorityQueue, problem, cost, currNode, path, target, exploredList)
 			exploredList.add(currNode)
 
-def aStarQueuingFunction(heap, problem, cost, currNode, path, target, exploredList):
+def aStarQueuingFunction(pq, problem, cost, currNode, path, target, exploredList):
 	ADJ_PATH_COST = 10 # Assumption that the cost to go to non diagonal neighbors for the Rover is 10.
 	DIAG_PATH_COST = 14 # Diagonally moving the rover takes an approx cost of 14.
 	array = problem['array'];
@@ -183,8 +184,8 @@ def aStarQueuingFunction(heap, problem, cost, currNode, path, target, exploredLi
 			else:
 				updatedPathCost = cost + DIAG_PATH_COST + elevationDifference + heuristicCost
 			updatedPath = path + [currNode]
-			heappush(heap, [updatedPathCost, neighbor, updatedPath])
-	return heap
+			pq.append([updatedPathCost, neighbor, updatedPath])
+	return pq
 
 def heuristicEvalFunction(start, end):
 	# Taking 2 tuples as the start and end point
@@ -194,7 +195,7 @@ def heuristicEvalFunction(start, end):
 	else:
 		xDiff = abs(end[0] - start[0])
 		yDiff = abs(end[0] - start[0])
-		cost = math.sqrt((math.pow(xDiff, 2) + math.pow(yDiff, 2))) # You might get a cost with float value!
+		cost = int(math.sqrt((math.pow(xDiff, 2) + math.pow(yDiff, 2)))) # Converting 
 		return cost
 
 # Mapping of Queuing Function to Algo names!
@@ -205,4 +206,4 @@ mappingDict = {
 }
 
 if __name__ == "__main__":
-	startUpFunction();
+	startUpFunction()
